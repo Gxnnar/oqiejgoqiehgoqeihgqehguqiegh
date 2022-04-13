@@ -1,0 +1,9 @@
+[package]
+name = "school_proxy"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+afire = "1.1.0"
+ureq = "2.4.0"
+url = "2.2.2"
