@@ -16,40 +16,22 @@ impl Middleware for App {
             None => return MiddleResponse::Continue,
         };
         let url = Url::parse(url).unwrap();
+        // Disallow localhost requests
         // match url.host_str() {
         //     Some("localhost") | Some("127.0.0.1") => panic!("Localhost is off limits :p"),
         //     _ => {}
         // }
 
-        let mut headers = req
-            .headers
-            .iter()
-            .filter(|x| x.name != "Host")
-            .collect::<Vec<_>>();
-        let host_header = Header::new("Host", url.host_str().unwrap());
-        headers.insert(0, &host_header);
-        let mut http_send = format!(
-            "{} {} HTTP/1.1\r\n{}\r\n\r\n",
-            req.method,
-            url.path(),
-            headers
-                .iter()
-                .map(|x| x.to_string() + "\r\n")
-                .collect::<String>()
-        )
-        .as_bytes()
-        .to_vec();
-        http_send.extend(req.body);
-
-        println!("{}", String::from_utf8_lossy(&http_send));
-
+        // Open request socket
         let mut stream = TcpStream::connect(url.socket_addrs(|| url.port()).unwrap()[0]).unwrap();
         stream.set_read_timeout(Some(timeout)).unwrap();
         stream.set_write_timeout(Some(timeout)).unwrap();
 
+        // Send Data
+        let http_send = gen_request(&req, &url);
         stream.write_all(&http_send).unwrap();
-        println!("Sent");
 
+        // Get response
         let mut buff = vec![0; 1024];
         loop {
             match stream.read(&mut buff) {
@@ -59,8 +41,8 @@ impl Middleware for App {
             }
         }
         strip_buff(&mut buff);
-        println!("Recv {}", buff.len());
 
+        // Parse Response
         let stream_string = String::from_utf8_lossy(&buff);
         let headers = http::get_request_headers(&stream_string)
             .into_iter()
@@ -68,10 +50,34 @@ impl Middleware for App {
             .collect();
         let status = http_status(&stream_string);
         let body = http::get_request_body(&buff);
-        dbg!(String::from_utf8_lossy(&body));
 
+        // Send Response
         MiddleResponse::Add(Response::new().status(status).bytes(body).headers(headers))
     }
+}
+
+fn gen_request(req: &Request, url: &Url) -> Vec<u8> {
+    let mut headers = req
+        .headers
+        .iter()
+        .filter(|x| x.name != "Host")
+        .collect::<Vec<_>>();
+    let host_header = Header::new("Host", url.host_str().unwrap());
+    headers.insert(0, &host_header);
+    let mut http_send = format!(
+        "{} {} HTTP/1.1\r\n{}\r\n\r\n",
+        req.method,
+        url.path(),
+        headers
+            .iter()
+            .map(|x| x.to_string() + "\r\n")
+            .collect::<String>()
+    )
+    .as_bytes()
+    .to_vec();
+    http_send.extend(req.body.clone());
+
+    http_send
 }
 
 fn main() {
