@@ -193,8 +193,11 @@ name = "school_proxy"
 version = "0.1.0"
 dependencies = [
  "afire",
+ "lazy_static",
+ "rustls",
  "ureq",
  "url",
+ "webpki-roots",
 ]
 
 [[package]]
