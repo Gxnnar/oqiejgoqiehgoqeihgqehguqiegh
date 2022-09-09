@@ -1,97 +1,17 @@
-use std::io::{Read, Write};
-use std::net::TcpStream;
-use std::sync::Arc;
+use std::io::Read;
 use std::time::Duration;
 
-use afire::{extension::ServeStatic, internal::http, prelude::*};
-use lazy_static::lazy_static;
+use afire::{extension::ServeStatic, prelude::*};
+use ureq::Error;
 use url::Url;
 
-lazy_static! {
-    static ref ROOT_STORE: rustls::RootCertStore = {
-        let mut root_store = rustls::RootCertStore::empty();
-        root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {
-            rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
-                ta.subject,
-                ta.spki,
-                ta.name_constraints,
-            )
-        }));
-        root_store
-    };
-    static ref CLIENT_CONFIG: Arc<rustls::ClientConfig> = Arc::new(
-        rustls::ClientConfig::builder()
-            .with_safe_defaults()
-            .with_root_certificates(ROOT_STORE.to_owned())
-            .with_no_client_auth()
-    );
-}
-
-fn request(url: &Url, send: &[u8], timeout: Option<Duration>) -> Vec<u8> {
-    // Open request socket
-    let mut stream = TcpStream::connect(url.socket_addrs(|| url.port()).unwrap()[0]).unwrap();
-    stream.set_read_timeout(timeout).unwrap();
-    stream.set_write_timeout(timeout).unwrap();
-
-    // Send Data
-    println!("==\n{}\n==", String::from_utf8_lossy(&send));
-    stream.write_all(&send).unwrap();
-
-    // Get response
-    let mut buff = Vec::new();
-    stream.read_to_end(&mut buff).unwrap();
-    buff
-}
-
-fn request_tls(url: &Url, send: &[u8], timeout: Option<Duration>) -> Vec<u8> {
-    // Open request socket
-    let mut stream = rustls::ClientConnection::new(
-        CLIENT_CONFIG.clone(),
-        url.host_str().unwrap().try_into().unwrap(),
-    )
-    .unwrap();
-    // stream.set_read_timeout(timeout).unwrap();
-    // stream.set_write_timeout(timeout).unwrap();
-
-    // Send Data
-    stream.writer().write_all(&send).unwrap();
-
-    // Get response
-    let mut buff = Vec::new();
-    stream.reader().read_to_end(&mut buff).unwrap();
-    buff
-}
-
-fn gen_request(req: &Request, url: &Url) -> Vec<u8> {
-    let mut headers = req
-        .headers
-        .iter()
-        .filter(|x| x.name != "Host")
-        .collect::<Vec<_>>();
-    let host_header = Header::new("Host", url.host_str().unwrap());
-    headers.insert(0, &host_header);
-    let mut http_send = format!(
-        "{} {} HTTP/1.1\r\n{}\r\n\r\n",
-        req.method,
-        url.path(),
-        headers
-            .iter()
-            .map(|x| x.to_string() + "\r\n")
-            .collect::<String>()
-    )
-    .as_bytes()
-    .to_vec();
-    http_send.extend(req.body.clone());
-
-    http_send
-}
+const BLOCKED_HEADERS: &[&str] = &["transfer-encoding", "connection"];
 
 fn main() {
     let mut server = Server::<()>::new("localhost", 8080);
     ServeStatic::new("./web/static").attach(&mut server);
 
     server.route(Method::ANY, "/p/**", |req| {
-        let timeout = Some(Duration::from_secs(5));
         let url = Url::parse(&req.path.strip_prefix("/p/").unwrap()).expect("Invalid URL");
 
         // Disallow localhost requests
@@ -100,39 +20,43 @@ fn main() {
             _ => {}
         }
 
-        let http_send = gen_request(&req, &url);
-        let mut buff = match url.scheme() {
-            "http" => request(&url, &http_send, timeout),
-            "https" => request_tls(&url, &http_send, timeout),
-            _ => panic!("Unsupported URL Scheme"),
-        };
-        strip_buff(&mut buff);
+        // Make request to real server
+        let mut res =
+            ureq::request(&req.method.to_string(), url.as_str()).timeout(Duration::from_secs(5));
 
-        // Parse Response
-        let stream_string = String::from_utf8_lossy(&buff);
-        let headers = http::get_request_headers(&stream_string)
-            .into_iter()
-            .filter(|x| x.name != "Content-Length")
-            .collect();
-        dbg!(&stream_string);
-        let status = http_status(&stream_string);
-        let body = http::get_request_body(&buff);
+        // Add headers to server reques
+        for i in req.headers {
+            res = res.set(&i.name, &i.value);
+        }
+
+        if let Some(i) = url.host_str() {
+            res = res.set("Host", i);
+        }
+
+        // Send request
+        let res = match res.send_bytes(&req.body) {
+            Ok(i) => i,
+            Err(Error::Status(_, i)) => i,
+            Err(e) => panic!("{}", e),
+        };
+
+        // Make client respose
+        let mut headers = Vec::new();
+        for i in res
+            .headers_names()
+            .iter()
+            .filter(|x| !BLOCKED_HEADERS.contains(&x.as_str()))
+        {
+            headers.push(Header::new(i, res.header(i).unwrap()));
+        }
+        let resp = Response::new().status(res.status()).headers(headers);
 
         // Send Response
-        Response::new().status(status).bytes(body).headers(headers)
+        let mut buff = Vec::new();
+        res.into_reader().read_to_end(&mut buff).unwrap();
+        resp.bytes(buff)
     });
 
     // server.start_threaded(64);
     server.start().unwrap();
-}
-
-fn strip_buff(buff: &mut Vec<u8>) {
-    while buff.last() == Some(&b'\0') {
-        buff.pop();
-    }
-}
-
-fn http_status(str: &str) -> u16 {
-    let mut parts = str.splitn(3, " ");
-    return parts.nth(1).expect("No Status").parse().unwrap();
 }
