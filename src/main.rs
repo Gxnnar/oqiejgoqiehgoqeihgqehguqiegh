@@ -3,7 +3,7 @@ use std::net::TcpStream;
 use std::sync::Arc;
 use std::time::Duration;
 
-use afire::{internal::http, prelude::*};
+use afire::{extension::ServeStatic, internal::http, prelude::*};
 use lazy_static::lazy_static;
 use url::Url;
 
@@ -19,49 +19,12 @@ lazy_static! {
         }));
         root_store
     };
-    static ref CLIENT_CONFIG: rustls::ClientConfig = rustls::ClientConfig::builder()
-        .with_safe_defaults()
-        .with_root_certificates(ROOT_STORE.to_owned())
-        .with_no_client_auth();
-}
-
-struct App;
-
-impl Middleware for App {
-    fn post(&self, req: Request, _res: Response) -> MiddleResponse {
-        let timeout = Some(Duration::from_secs(5));
-
-        let url = match req.path.strip_prefix("/p/") {
-            Some(i) => i,
-            None => return MiddleResponse::Continue,
-        };
-        let url = Url::parse(url).unwrap();
-        // Disallow localhost requests
-        // match url.host_str() {
-        //     Some("localhost") | Some("127.0.0.1") => panic!("Localhost is off limits :p"),
-        //     _ => {}
-        // }
-
-        let http_send = gen_request(&req, &url);
-        let mut buff = match url.scheme() {
-            "http" => request(&url, &http_send, timeout),
-            "https" => unimplemented!(),
-            _ => panic!("Unsupported URL Scheme"),
-        };
-        strip_buff(&mut buff);
-
-        // Parse Response
-        let stream_string = String::from_utf8_lossy(&buff);
-        let headers = http::get_request_headers(&stream_string)
-            .into_iter()
-            .filter(|x| x.name != "Content-Length")
-            .collect();
-        let status = http_status(&stream_string);
-        let body = http::get_request_body(&buff);
-
-        // Send Response
-        MiddleResponse::Add(Response::new().status(status).bytes(body).headers(headers))
-    }
+    static ref CLIENT_CONFIG: Arc<rustls::ClientConfig> = Arc::new(
+        rustls::ClientConfig::builder()
+            .with_safe_defaults()
+            .with_root_certificates(ROOT_STORE.to_owned())
+            .with_no_client_auth()
+    );
 }
 
 fn request(url: &Url, send: &[u8], timeout: Option<Duration>) -> Vec<u8> {
@@ -85,32 +48,32 @@ fn request(url: &Url, send: &[u8], timeout: Option<Duration>) -> Vec<u8> {
     buff
 }
 
-// fn request_tls(url: &Url, send: &[u8], timeout: Option<Duration>) -> Vec<u8> {
-//     // Open request socket
-//     let mut stream = rustls::ClientConnection::new(
-//         Arc::new(*CLIENT_CONFIG),
-//         url.host_str().unwrap().try_into().unwrap(),
-//     )
-//     .unwrap();
-//     let mut stream = stream.writer();
-//     // url.socket_addrs(|| url.port()).unwrap()[0]
-//     // stream.set_read_timeout(timeout).unwrap();
-//     // stream.set_write_timeout(timeout).unwrap();
-//
-//     // Send Data
-//     stream.write_all(&send).unwrap();
-//
-//     // Get response
-//     let mut buff = vec![0; 1024];
-//     loop {
-//         match stream.rea(&mut buff) {
-//             Err(_) => break,
-//             Ok(0) => break,
-//             Ok(i) => buff.extend(vec![0; i]),
-//         }
-//     }
-//     buff
-// }
+fn request_tls(url: &Url, send: &[u8], timeout: Option<Duration>) -> Vec<u8> {
+    // Open request socket
+    let mut stream = rustls::ClientConnection::new(
+        CLIENT_CONFIG.clone(),
+        url.host_str().unwrap().try_into().unwrap(),
+    )
+    .unwrap();
+    // url.socket_addrs(|| url.port()).unwrap()[0]
+    // stream.set_read_timeout(timeout).unwrap();
+    // stream.set_write_timeout(timeout).unwrap();
+
+    // Send Data
+    stream.writer().write_all(&send).unwrap();
+
+    // Get response
+    let mut reader = stream.reader();
+    let mut buff = vec![0; 1024];
+    loop {
+        match reader.read(&mut buff) {
+            Err(_) => break,
+            Ok(0) => break,
+            Ok(i) => buff.extend(vec![0; i]),
+        }
+    }
+    buff
+}
 
 fn gen_request(req: &Request, url: &Url) -> Vec<u8> {
     let mut headers = req
@@ -137,8 +100,41 @@ fn gen_request(req: &Request, url: &Url) -> Vec<u8> {
 }
 
 fn main() {
-    let mut server = Server::new("localhost", 8080);
-    App.attach(&mut server);
+    let mut server = Server::<()>::new("localhost", 8080);
+    ServeStatic::new("./web/static").attach(&mut server);
+
+    server.route(Method::ANY, "/p/{URL}", |req| {
+        let timeout = Some(Duration::from_secs(5));
+        let url = Url::parse(&req.path_param("URL").unwrap()).expect("Invalid URL");
+
+        // Disallow localhost requests
+        match url.host_str() {
+            Some("localhost") | Some("127.0.0.1") => panic!("Localhost is off limits :p"),
+            _ => {}
+        }
+
+        let http_send = gen_request(&req, &url);
+        let mut buff = match url.scheme() {
+            "http" => request(&url, &http_send, timeout),
+            "https" => request_tls(&url, &http_send, timeout),
+            _ => panic!("Unsupported URL Scheme"),
+        };
+        strip_buff(&mut buff);
+
+        // Parse Response
+        let stream_string = String::from_utf8_lossy(&buff);
+        let headers = http::get_request_headers(&stream_string)
+            .into_iter()
+            .filter(|x| x.name != "Content-Length")
+            .collect();
+        dbg!(&stream_string);
+        let status = http_status(&stream_string);
+        let body = http::get_request_body(&buff);
+
+        // Send Response
+        Response::new().status(status).bytes(body).headers(headers)
+    });
+
     server.start_threaded(64);
 }
 
@@ -150,5 +146,5 @@ fn strip_buff(buff: &mut Vec<u8>) {
 
 fn http_status(str: &str) -> u16 {
     let mut parts = str.splitn(3, " ");
-    return parts.nth(1).unwrap().parse().unwrap();
+    return parts.nth(1).expect("No Status").parse().unwrap();
 }
