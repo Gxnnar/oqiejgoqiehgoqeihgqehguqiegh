@@ -34,17 +34,12 @@ fn request(url: &Url, send: &[u8], timeout: Option<Duration>) -> Vec<u8> {
     stream.set_write_timeout(timeout).unwrap();
 
     // Send Data
+    println!("==\n{}\n==", String::from_utf8_lossy(&send));
     stream.write_all(&send).unwrap();
 
     // Get response
-    let mut buff = vec![0; 1024];
-    loop {
-        match stream.read(&mut buff) {
-            Err(_) => break,
-            Ok(0) => break,
-            Ok(i) => buff.extend(vec![0; i]),
-        }
-    }
+    let mut buff = Vec::new();
+    stream.read_to_end(&mut buff).unwrap();
     buff
 }
 
@@ -55,7 +50,6 @@ fn request_tls(url: &Url, send: &[u8], timeout: Option<Duration>) -> Vec<u8> {
         url.host_str().unwrap().try_into().unwrap(),
     )
     .unwrap();
-    // url.socket_addrs(|| url.port()).unwrap()[0]
     // stream.set_read_timeout(timeout).unwrap();
     // stream.set_write_timeout(timeout).unwrap();
 
@@ -63,15 +57,8 @@ fn request_tls(url: &Url, send: &[u8], timeout: Option<Duration>) -> Vec<u8> {
     stream.writer().write_all(&send).unwrap();
 
     // Get response
-    let mut reader = stream.reader();
-    let mut buff = vec![0; 1024];
-    loop {
-        match reader.read(&mut buff) {
-            Err(_) => break,
-            Ok(0) => break,
-            Ok(i) => buff.extend(vec![0; i]),
-        }
-    }
+    let mut buff = Vec::new();
+    stream.reader().read_to_end(&mut buff).unwrap();
     buff
 }
 
@@ -103,9 +90,9 @@ fn main() {
     let mut server = Server::<()>::new("localhost", 8080);
     ServeStatic::new("./web/static").attach(&mut server);
 
-    server.route(Method::ANY, "/p/{URL}", |req| {
+    server.route(Method::ANY, "/p/**", |req| {
         let timeout = Some(Duration::from_secs(5));
-        let url = Url::parse(&req.path_param("URL").unwrap()).expect("Invalid URL");
+        let url = Url::parse(&req.path.strip_prefix("/p/").unwrap()).expect("Invalid URL");
 
         // Disallow localhost requests
         match url.host_str() {
@@ -135,7 +122,8 @@ fn main() {
         Response::new().status(status).bytes(body).headers(headers)
     });
 
-    server.start_threaded(64);
+    // server.start_threaded(64);
+    server.start().unwrap();
 }
 
 fn strip_buff(buff: &mut Vec<u8>) {
