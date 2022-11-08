@@ -2,7 +2,7 @@ use std::io::Read;
 use std::time::Duration;
 
 use afire::{extension::ServeStatic, prelude::*};
-use ureq::Error;
+use ureq::{AgentBuilder, Error};
 use url::Url;
 
 const BLOCKED_HEADERS: &[&str] = &["transfer-encoding", "connection"];
@@ -20,9 +20,13 @@ fn main() {
             _ => {}
         }
 
+        // Make agent
+        let agent = AgentBuilder::new().redirects(0).build();
+
         // Make request to real server
-        let mut res =
-            ureq::request(&req.method.to_string(), url.as_str()).timeout(Duration::from_secs(5));
+        let mut res = agent
+            .request(&req.method.to_string(), url.as_str())
+            .timeout(Duration::from_secs(5));
 
         // Add headers to server reques
         for i in req.headers {
@@ -47,7 +51,13 @@ fn main() {
             .iter()
             .filter(|x| !BLOCKED_HEADERS.contains(&x.as_str()))
         {
-            headers.push(Header::new(i, res.header(i).unwrap()));
+            let mut header = Header::new(i, res.header(i).unwrap());
+            if header.name == "Location" {
+                header.value = format!("/p/{}", header.value);
+                continue;
+            }
+
+            headers.push(header);
         }
         let resp = Response::new().status(res.status()).headers(headers);
 
