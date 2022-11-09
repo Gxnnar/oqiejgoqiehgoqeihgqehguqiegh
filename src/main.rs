@@ -13,10 +13,15 @@ fn main() {
 
     server.route(Method::ANY, "/p/**", |req| {
         let url = Url::parse(&req.path.strip_prefix("/p/").unwrap()).expect("Invalid URL");
+        println!("[HANDLING] `{}`", url);
 
         // Disallow localhost requests
         match url.host_str() {
-            Some("localhost") | Some("127.0.0.1") => panic!("Localhost is off limits :p"),
+            Some("localhost") | Some("127.0.0.1") => {
+                return Response::new()
+                    .status(500)
+                    .text("Localhost is off limits :p")
+            }
             _ => {}
         }
 
@@ -41,7 +46,7 @@ fn main() {
         let res = match res.send_bytes(&req.body) {
             Ok(i) => i,
             Err(Error::Status(_, i)) => i,
-            Err(e) => panic!("{}", e),
+            Err(e) => return Response::new().status(500).text(e),
         };
 
         // Make client respose

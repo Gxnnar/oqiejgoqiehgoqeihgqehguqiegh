@@ -1,16 +1,9 @@
 // Request event listaner
 self.addEventListener("fetch", (event) => {
-  console.log("HANDLING", event);
+  let url = new URL(event.request.url);
+  let realHost = event.request.referrer.split("/p/")[1] ?? url;
+  realHost = new URL(realHost).origin;
 
-  let req = event.request;
-  let url = new URL(req.url);
-  let realHost = req.headers.get("Referer").split("/p/")[1];
-
-  if (url.hostname == "localhost" && !url.pathname.startsWith("/p/"))
-    req = new Request(`/p/${encodeURIComponent(realHost + url.pathname)}`, req);
-
-  console.log("WORKER: Fetching", req);
-  return fetch(req).then((d) => {
-    return d;
-  });
+  let req = new Request(`/p/${realHost + url.pathname}`, event.request);
+  event.respondWith(fetch(req));
 });
