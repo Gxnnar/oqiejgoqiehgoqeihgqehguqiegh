@@ -1,5 +1,5 @@
+use std::borrow::Cow;
 use std::time::Duration;
-use std::{borrow::Cow, io::Read};
 
 use afire::prelude::*;
 use ureq::{AgentBuilder, Error};
@@ -12,20 +12,12 @@ const BLOCKED_HEADERS: &[&str] = &[
     "referrer-policy",
 ];
 
-fn url(str: &str) -> Url {
-    if str.starts_with("http") {
-        return Url::parse(str).unwrap();
-    }
-
-    Url::parse(&format!("https://{str}")).unwrap()
-}
-
 fn main() {
     let mut server = Server::<()>::new("localhost", 8080);
     // ServeStatic::new("./web/static").attach(&mut server);
 
     server.route(Method::ANY, "**", |req| {
-        let addr = if let Some(i) = req.header("Referer") {
+        let addr = if let Some(i) = req.headers.get(HeaderType::Referer) {
             let url = url(&i);
             let path = &url.path()[1..];
             Cow::Owned(format!("{path}/{}", &req.path[1..]))
@@ -47,8 +39,8 @@ fn main() {
             .timeout(Duration::from_secs(5));
 
         // Add headers to server request
-        for i in req.headers {
-            res = res.set(&i.name, &i.value);
+        for i in req.headers.iter() {
+            res = res.set(&i.name.to_string(), &i.value);
         }
 
         if let Some(i) = url.host_str() {
@@ -63,33 +55,37 @@ fn main() {
         };
 
         // Make client response
-        let mut headers = Vec::new();
-        for i in res
+        let headers = res
             .headers_names()
             .iter()
             .filter(|x| !BLOCKED_HEADERS.contains(&x.to_ascii_lowercase().as_str()))
-        {
-            let mut header = Header::new(i, res.header(i).unwrap());
-            if header.name == "Location" {
-                header.value = format!("/p/{}", header.value);
-                continue;
-            }
+            .filter_map(|i| {
+                let mut header = Header::new(i, res.header(i).unwrap());
+                if header.name == HeaderType::Location {
+                    header.value = format!("/p/{}", header.value);
+                }
 
-            headers.push(header);
-        }
-        let resp = Response::new()
-            .status(res.status())
-            .headers(headers)
-            .header("referrer-policy", "unsafe-url");
+                Some(header)
+            })
+            .collect::<Vec<_>>();
 
         // Send Response
-        // TODO: Update afire for streaming responces
-        let mut buff = Vec::new();
-        res.into_reader().read_to_end(&mut buff).unwrap();
-        resp.bytes(buff)
+        Response::new()
+            .status(res.status())
+            .headers(&headers)
+            .header("referrer-policy", "unsafe-url")
+            .stream(res.into_reader())
     });
 
     server.start_threaded(64).unwrap();
+}
+
+fn url(str: &str) -> Url {
+    if str.starts_with("http") {
+        return Url::parse(str).unwrap();
+    }
+
+    Url::parse(&format!("https://{str}")).unwrap()
 }
 
 // == TODOS ==

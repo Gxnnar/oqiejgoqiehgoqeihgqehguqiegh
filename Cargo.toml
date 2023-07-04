@@ -4,9 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-afire = { git = "https://github.com/Basicprogrammer10/afire", branch = "dev", features = ["tracing", "extensions"] }
+afire = { version = "2.2.0", features = ["tracing", "extensions"] }
 ureq = "2.4.0"
 url = "2.2.2"
-lazy_static = "1.4.0"
-rustls = "0.20.4"
-webpki-roots = "0.22.3"
