@@ -8,5 +8,15 @@
   <body>
     <h1>School Proxy - BETA</h1>
     <h2>By <a href="https://connorcode.com">Connor Slade</a></h2>
+    <input type="button" value="Go!" go-button />
+    <input type="text" webpage />
+
+    <script>
+      const goButton = document.querySelector("[go-button]");
+      const webpage = document.querySelector("[webpage]");
+      goButton.addEventListener("click", () => {
+        window.location = `/p/${webpage.value}`;
+      });
+    </script>
   </body>
 </html>
