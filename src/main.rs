@@ -19,7 +19,7 @@ fn main() -> anyhow::Result<()> {
         .workers(10)
         .state(app);
 
-    ServeStatic::new("./web/static").attach(&mut server);
+    ServeStatic::new("./web").attach(&mut server);
     proxy::attach(&mut server);
 
     let exit_app = server.app();
