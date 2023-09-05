@@ -1,4 +1,9 @@
-use afire::{extensions::ServeStatic, Middleware, Server};
+use afire::{
+    extensions::ServeStatic,
+    trace,
+    trace::{set_log_level, Level},
+    Middleware, Server,
+};
 use app::App;
 
 mod analytics;
@@ -8,6 +13,8 @@ mod proxy;
 mod routes;
 
 fn main() -> anyhow::Result<()> {
+    set_log_level(Level::Trace);
+
     let app = App::new("./config.toml".into())?;
     let mut server = Server::new(app.config.host, app.config.port)
         .workers(10)

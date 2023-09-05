@@ -27,6 +27,7 @@ pub fn attach(server: &mut Server<App>) {
         }
         let url = url.context("Invalid URL")?;
 
+        #[cfg(debug_assertions)]
         println!("[HANDLING] `{}`", url);
 
         // Disallow localhost requests
