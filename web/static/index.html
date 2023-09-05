@@ -8,5 +8,29 @@
   <body>
     <h1>School Proxy - BETA</h1>
     <h2>By <a href="https://connorcode.com">Connor Slade</a></h2>
+
+    <form>
+      <input type="text" name="url" placeholder="https://connorcode.com" />
+      <input type="submit" value="Go" />
+    </form>
+    <br />
+
+    <script>
+      const form = document.querySelector("form");
+      const iframe = document.querySelector("iframe");
+
+      const INTERCEPTOR = `
+        browser.webRequest.onBeforeRequest.addListener(logURL, {
+          urls: ["<all_urls>"],
+        });`;
+
+      document
+        .querySelector("input[type=submit]")
+        .addEventListener("click", (e) => {
+          e.preventDefault();
+          const addr = form.querySelector("input[name=url]").value;
+          document.location = `/p/${encodeURIComponent(addr)}`;
+        });
+    </script>
   </body>
 </html>

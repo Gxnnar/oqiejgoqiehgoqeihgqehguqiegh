@@ -1,77 +1,29 @@
-use std::io::Read;
-use std::time::Duration;
+use afire::{extensions::ServeStatic, Middleware, Server};
+use app::App;
 
-use afire::{extension::ServeStatic, prelude::*};
-use ureq::{AgentBuilder, Error};
-use url::Url;
+mod analytics;
+mod app;
+mod config;
+mod proxy;
 
 const BLOCKED_HEADERS: &[&str] = &["transfer-encoding", "connection"];
 
-fn main() {
-    let mut server = Server::<()>::new("localhost", 8080);
+fn main() -> anyhow::Result<()> {
+    let app = App::new("./config.toml".into())?;
+    let mut server = Server::new(app.config.host, app.config.port)
+        .workers(10)
+        .state(app);
+
     ServeStatic::new("./web/static").attach(&mut server);
+    proxy::attach(&mut server);
 
-    server.route(Method::ANY, "/p/**", |req| {
-        let url = Url::parse(&req.path.strip_prefix("/p/").unwrap()).expect("Invalid URL");
-        println!("[HANDLING] `{}`", url);
+    let exit_app = server.app();
+    ctrlc::set_handler(move || {
+        println!("[*] Shutting Down...");
+        exit_app.analytics.cleanup().unwrap();
+        std::process::exit(0);
+    })?;
 
-        // Disallow localhost requests
-        match url.host_str() {
-            Some("localhost") | Some("127.0.0.1") => {
-                return Response::new()
-                    .status(500)
-                    .text("Localhost is off limits :p")
-            }
-            _ => {}
-        }
-
-        // Make agent
-        let agent = AgentBuilder::new().redirects(0).build();
-
-        // Make request to real server
-        let mut res = agent
-            .request(&req.method.to_string(), url.as_str())
-            .timeout(Duration::from_secs(5));
-
-        // Add headers to server reques
-        for i in req.headers {
-            res = res.set(&i.name, &i.value);
-        }
-
-        if let Some(i) = url.host_str() {
-            res = res.set("Host", i);
-        }
-
-        // Send request
-        let res = match res.send_bytes(&req.body) {
-            Ok(i) => i,
-            Err(Error::Status(_, i)) => i,
-            Err(e) => return Response::new().status(500).text(e),
-        };
-
-        // Make client respose
-        let mut headers = Vec::new();
-        for i in res
-            .headers_names()
-            .iter()
-            .filter(|x| !BLOCKED_HEADERS.contains(&x.as_str()))
-        {
-            let mut header = Header::new(i, res.header(i).unwrap());
-            if header.name == "Location" {
-                header.value = format!("/p/{}", header.value);
-                continue;
-            }
-
-            headers.push(header);
-        }
-        let resp = Response::new().status(res.status()).headers(headers);
-
-        // Send Response
-        let mut buff = Vec::new();
-        res.into_reader().read_to_end(&mut buff).unwrap();
-        resp.bytes(buff)
-    });
-
-    // server.start_threaded(64);
-    server.start().unwrap();
+    server.run()?;
+    Ok(())
 }

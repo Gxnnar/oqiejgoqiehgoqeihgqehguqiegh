@@ -4,9 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-afire = { git = "https://github.com/Basicprogrammer10/afire", branch = "dev", features = ["tracing", "extensions"] }
+afire = { version = "3.0.0-alpha.2", features = ["tracing", "extensions"] }
+anyhow = "1.0.75"
+ctrlc = "3.4.1"
+parking_lot = "0.12.1"
+rusqlite = { version = "0.29.0", features = ["bundled"] }
+serde = { version = "1.0.188", features = ["derive"] }
+toml = "0.7.6"
 ureq = "2.4.0"
 url = "2.2.2"
-lazy_static = "1.4.0"
-rustls = "0.20.4"
-webpki-roots = "0.22.3"
