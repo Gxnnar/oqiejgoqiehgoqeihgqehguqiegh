@@ -20,9 +20,13 @@ INPUT.addEventListener("keydown", () => {
 });
 
 GO_BUTTON.addEventListener("click", (e) => {
-  e.preventDefault();
   const addr = INPUT.value;
   document.location = `/p/${encodeURIComponent(addr)}`;
+});
+
+FORM.addEventListener("submit", (e) => {
+  e.preventDefault();
+  GO_BUTTON.click();
 });
 
 function updatePlaceholder() {
