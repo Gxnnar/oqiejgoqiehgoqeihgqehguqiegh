@@ -18,6 +18,7 @@ fn main() -> anyhow::Result<()> {
     let app = App::new("./config.toml".into())?;
     let mut server = Server::new(app.config.host, app.config.port)
         .workers(10)
+        .keep_alive(false)
         .state(app);
 
     ServeStatic::new("./web").attach(&mut server);

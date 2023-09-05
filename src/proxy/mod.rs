@@ -7,6 +7,8 @@ use url::{ParseError, Url};
 
 use crate::{app::App, BLOCKED_HEADERS};
 
+mod rewrite;
+
 pub fn attach(server: &mut Server<App>) {
     server.route(Method::ANY, "/p/{path}", |ctx| {
         let raw_url = encoding::url::decode(ctx.param_idx(0));
@@ -76,10 +78,23 @@ pub fn attach(server: &mut Server<App>) {
             })
             .collect::<Vec<_>>();
 
-        ctx.status(res.status())
+        // Optionally rewrite HTML
+        let status = res.status();
+        if res
+            .header("Content-Type")
+            .unwrap_or_default()
+            .starts_with("text/html")
+        {
+            let body = res.into_string()?;
+            let body = rewrite::rewrite(&body, &url)?;
+            ctx.bytes(body);
+        } else {
+            ctx.stream(res.into_reader());
+        }
+
+        ctx.status(status)
             .headers(headers)
             .header(("Referrer-Policy", "unsafe-url"))
-            .stream(res.into_reader())
             .send()?;
         Ok(())
     });
