@@ -60,7 +60,7 @@ pub fn attach(server: &mut Server<App>) {
         // how devious of me ^w^
         ctx.app()
             .analytics
-            .log_request(&ctx.req, url.as_str(), res.status(), time.elapsed())?;
+            .log_request(&ctx.req, &url, res.status(), time.elapsed())?;
 
         // Make client response
         let headers = res

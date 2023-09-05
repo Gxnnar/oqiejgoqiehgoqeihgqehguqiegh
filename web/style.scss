@@ -65,8 +65,21 @@ a {
     align-items: center;
     justify-content: center;
 
+    &[disabled] {
+      cursor: not-allowed;
+    }
+
     & [icon] {
+      transition: all 0.3s;
       font-size: 30px;
+    }
+
+    &:hover [icon] {
+      transform: scale(1.2);
+    }
+
+    &[disabled]:hover [icon] {
+      transform: none;
     }
   }
 }

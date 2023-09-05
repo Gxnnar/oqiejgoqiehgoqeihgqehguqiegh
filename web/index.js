@@ -4,15 +4,20 @@ const GO_BUTTON = FORM.querySelector("[go]");
 
 // websites that the kool kids visit, presumably.
 // i wouldn't know.
-const PLACEHOLDER_SITES = [
-  "https://connorcode.com",
-  "https://google.com",
-  "https://youtube.com",
-  "https://github.com",
-  "https://wikpedia.org",
-  "https://chat.openai.com",
+let PLACEHOLDER_SITES = [
+  "connorcode.com",
+  "google.com",
+  "youtube.com",
+  "github.com",
+  "wikpedia.org",
+  "chat.openai.com",
 ];
 let placeholderIndex = 0;
+
+INPUT.addEventListener("keydown", () => {
+  if (INPUT.value.length > 0) GO_BUTTON.removeAttribute("disabled");
+  else GO_BUTTON.setAttribute("disabled", "");
+});
 
 GO_BUTTON.addEventListener("click", (e) => {
   e.preventDefault();
@@ -21,7 +26,7 @@ GO_BUTTON.addEventListener("click", (e) => {
 });
 
 function updatePlaceholder() {
-  INPUT.placeholder = PLACEHOLDER_SITES[placeholderIndex];
+  INPUT.placeholder = `https://${PLACEHOLDER_SITES[placeholderIndex]}`;
   placeholderIndex = (placeholderIndex + 1) % PLACEHOLDER_SITES.length;
 }
 

@@ -60,8 +60,18 @@ a {
   align-items: center;
   justify-content: center;
 }
+[visit-site] [go][disabled] {
+  cursor: not-allowed;
+}
 [visit-site] [go] [icon] {
+  transition: all 0.3s;
   font-size: 30px;
+}
+[visit-site] [go]:hover [icon] {
+  transform: scale(1.2);
+}
+[visit-site] [go][disabled]:hover [icon] {
+  transform: none;
 }
 
 /*# sourceMappingURL=style.css.map */

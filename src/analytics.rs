@@ -3,6 +3,7 @@ use std::{sync::Arc, time::Duration};
 use afire::{internal::sync::ForceLockMutex, Request};
 use parking_lot::{MappedMutexGuard, Mutex, MutexGuard};
 use rusqlite::{params, Connection};
+use url::Url;
 
 pub struct Analytics {
     pub inner: Mutex<Option<Connection>>,
@@ -57,7 +58,7 @@ impl Analytics {
     pub fn log_request(
         &self,
         request: &Arc<Request>,
-        path: &str,
+        path: &Url,
         response_status: u16,
         response_latency: Duration,
     ) -> anyhow::Result<()> {
@@ -74,7 +75,8 @@ impl Analytics {
             params![
                 request.socket.force_lock().peer_addr()?.to_string(),
                 request.method.to_string(),
-                path,
+                path.as_str(),
+                path.host_str().unwrap_or_default(),
                 request.version.to_string(),
                 headers,
                 request.body,
@@ -84,5 +86,18 @@ impl Analytics {
         )?;
 
         Ok(())
+    }
+
+    pub fn top_sites(&self, count: u32) -> anyhow::Result<Vec<String>> {
+        let this = self.lock();
+        let mut stmt = this.prepare(include_str!("./sql/query_top_requests.sql"))?;
+        let mut rows = stmt.query([count])?;
+
+        let mut out = Vec::new();
+        while let Some(row) = rows.next()? {
+            out.push(row.get(0)?);
+        }
+
+        Ok(out)
     }
 }

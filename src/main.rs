@@ -5,6 +5,7 @@ mod analytics;
 mod app;
 mod config;
 mod proxy;
+mod routes;
 
 const BLOCKED_HEADERS: &[&str] = &[
     "transfer-encoding",
@@ -21,6 +22,7 @@ fn main() -> anyhow::Result<()> {
 
     ServeStatic::new("./web").attach(&mut server);
     proxy::attach(&mut server);
+    routes::attach(&mut server);
 
     let exit_app = server.app();
     ctrlc::set_handler(move || {
@@ -34,6 +36,5 @@ fn main() -> anyhow::Result<()> {
 }
 
 // == TODOS ==
-// - Analytis in a sqlite db and graphs on the homepage
-// - Said homepage will be a search like box with a grayed out `https://`
-//   For the user to type an address into, if its not a valid address, ddg search it.
+// - some kinda caching mechanism
+// - Finish top-sites with https://paste.connorcode.com/b/2ef343f4-5681-4c37-863e-490a6cfe8c27
