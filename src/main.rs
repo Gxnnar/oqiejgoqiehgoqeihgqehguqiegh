@@ -7,13 +7,6 @@ mod config;
 mod proxy;
 mod routes;
 
-const BLOCKED_HEADERS: &[&str] = &[
-    "transfer-encoding",
-    "connection",
-    "content-security-policy",
-    "referrer-policy",
-];
-
 fn main() -> anyhow::Result<()> {
     let app = App::new("./config.toml".into())?;
     let mut server = Server::new(app.config.host, app.config.port)

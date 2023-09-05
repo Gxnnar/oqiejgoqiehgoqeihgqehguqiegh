@@ -27,25 +27,61 @@ pub fn rewrite(body: &str, current_url: &Url) -> anyhow::Result<Vec<u8>> {
 }
 
 fn walk(handle: &Handle, current_url: &Url) {
-    if let NodeData::Element { name, attrs, .. } = &handle.data {
-        match name.local.as_ref() {
-            "a" => rewrite_a(attrs, current_url),
-            _ => {}
-        }
-    }
-
     for child in handle.children.borrow().iter() {
         walk(child, current_url);
     }
+
+    if let NodeData::Element { name, attrs, .. } = &handle.data {
+        rewrite_all(attrs, current_url);
+
+        match name.local.as_bytes() {
+            b"link" => rewrite_link(attrs),
+            _ => {}
+        }
+    }
 }
 
-fn rewrite_a(attrs: &RefCell<Vec<Attribute>>, current_url: &Url) {
+const ADDRESS_ATTRS: &[&[u8]] = &[b"src", b"href", b"srcset"];
+
+fn rewrite_all(attrs: &RefCell<Vec<Attribute>>, current_url: &Url) {
     let mut attrs = attrs.borrow_mut();
-    let Some(href) = attrs.iter_mut().find(|i| i.name.local.eq("href")) else {
+    let Some(href) = attrs.iter_mut().find(|i| ADDRESS_ATTRS.contains(&i.name.local.as_bytes())) else {
+            return;
+        };
+
+    if href.value.starts_with("#") {
         return;
-    };
+    }
 
     if let Ok(url) = current_url.join(&href.value) {
         href.value = format!("/p/{}", encoding::url::encode(url.as_str())).into();
     }
+}
+
+const DISALLOWED_LINK_REL: &[&[u8]] = &[
+    b"dns-prefetch",
+    b"modulepreload",
+    b"next",
+    b"noreferrer",
+    b"noopener",
+    b"preconnect",
+    b"prefetch",
+    b"preload",
+    b"prerender",
+    b"prev",
+];
+
+fn rewrite_link(attrs: &RefCell<Vec<Attribute>>) {
+    let mut attrs = attrs.borrow_mut();
+    let Some(rel) = attrs.iter_mut().find(|i| i.name.local.as_bytes() == b"rel") else {
+        return;
+    };
+
+    let values = rel
+        .value
+        .split_whitespace()
+        .filter(|i| !DISALLOWED_LINK_REL.contains(&i.as_bytes()))
+        .collect::<Vec<_>>()
+        .join(" ");
+    rel.value = values.into();
 }

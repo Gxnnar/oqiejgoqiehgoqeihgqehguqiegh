@@ -5,9 +5,18 @@ use afire::{internal::encoding, prelude::*, route::RouteContext};
 use ureq::{AgentBuilder, Error};
 use url::{ParseError, Url};
 
-use crate::{app::App, BLOCKED_HEADERS};
+use crate::app::App;
 
 mod rewrite;
+
+const BLOCKED_HEADERS: &[&str] = &[
+    "transfer-encoding",
+    "connection",
+    "content-security-policy",
+    "referrer-policy",
+    "content-encoding",
+    "accept-encoding",
+];
 
 pub fn attach(server: &mut Server<App>) {
     server.route(Method::ANY, "/p/{path}", |ctx| {
@@ -37,7 +46,12 @@ pub fn attach(server: &mut Server<App>) {
         let mut res = agent.request(&ctx.req.method.to_string(), url.as_str());
 
         // Add headers to server request
-        for i in ctx.req.headers.iter() {
+        for i in ctx
+            .req
+            .headers
+            .iter()
+            .filter(|x| !blocked_header(x.name.to_string().as_str()))
+        {
             res = res.set(&i.name.to_string(), &i.value);
         }
 
@@ -68,11 +82,14 @@ pub fn attach(server: &mut Server<App>) {
         let headers = res
             .headers_names()
             .iter()
-            .filter(|x| !BLOCKED_HEADERS.contains(&x.to_ascii_lowercase().as_str()))
+            .filter(|x| !blocked_header(x))
             .map(|i| {
                 let mut header = Header::new(i, res.header(i).unwrap());
                 if header.name == HeaderName::Location {
-                    header.value = Cow::Owned(format!("/p/{}", header.value));
+                    if let Ok(url) = url.join(&header.value) {
+                        header.value =
+                            Cow::Owned(format!("/p/{}", encoding::url::encode(url.as_str())));
+                    }
                 }
                 header
             })
@@ -88,6 +105,8 @@ pub fn attach(server: &mut Server<App>) {
             let body = res.into_string()?;
             let body = rewrite::rewrite(&body, &url)?;
             ctx.bytes(body);
+            // ctx.modifier(|res| res.headers.retain(|i| i.name != HeaderName::ContentType));
+            // ctx.header((HeaderName::ContentType, "text/html; charset=utf-8"));
         } else {
             ctx.stream(res.into_reader());
         }
@@ -98,4 +117,8 @@ pub fn attach(server: &mut Server<App>) {
             .send()?;
         Ok(())
     });
+}
+
+fn blocked_header(name: &str) -> bool {
+    BLOCKED_HEADERS.contains(&name.to_ascii_lowercase().as_str())
 }

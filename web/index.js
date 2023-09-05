@@ -14,13 +14,34 @@ let PLACEHOLDER_SITES = [
 ];
 let placeholderIndex = 0;
 
+const SUPPORTED_PROTOCOLS = ["http:", "https:"];
+
 INPUT.addEventListener("keydown", () => {
   if (INPUT.value.length > 0) GO_BUTTON.removeAttribute("disabled");
   else GO_BUTTON.setAttribute("disabled", "");
 });
 
 GO_BUTTON.addEventListener("click", (e) => {
-  const addr = INPUT.value;
+  let addr = INPUT.value;
+
+  let hasProtocol = false;
+  for (let protocol of SUPPORTED_PROTOCOLS) {
+    if (addr.startsWith(protocol)) {
+      hasProtocol = true;
+      break;
+    }
+  }
+
+  if (!hasProtocol) {
+    addr = `https://${addr}`;
+  }
+
+  try {
+    new URL(addr);
+  } catch (e) {
+    addr = `https://duckduckgo.com/?q=${encodeURIComponent(INPUT.value)}`;
+  }
+
   document.location = `/p/${encodeURIComponent(addr)}`;
 });
 
