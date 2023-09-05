@@ -63,20 +63,18 @@ pub fn attach(server: &mut Server<App>) {
             .log_request(&ctx.req, url.as_str(), res.status(), time.elapsed())?;
 
         // Make client response
-        let mut headers = Vec::new();
-        for i in res
+        let headers = res
             .headers_names()
             .iter()
-            .filter(|x| !BLOCKED_HEADERS.contains(&x.as_str()))
-        {
-            let mut header = Header::new(i, res.header(i).unwrap());
-            if header.name == HeaderName::Location {
-                header.value = Cow::Owned(format!("/p/{}", header.value));
-                continue;
-            }
-
-            headers.push(header);
-        }
+            .filter(|x| !BLOCKED_HEADERS.contains(&x.to_ascii_lowercase().as_str()))
+            .map(|i| {
+                let mut header = Header::new(i, res.header(i).unwrap());
+                if header.name == HeaderName::Location {
+                    header.value = Cow::Owned(format!("/p/{}", header.value));
+                }
+                header
+            })
+            .collect::<Vec<_>>();
 
         ctx.status(res.status())
             .headers(headers)
