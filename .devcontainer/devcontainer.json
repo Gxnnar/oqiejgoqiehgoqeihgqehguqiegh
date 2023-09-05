@@ -1,0 +1,6 @@
+{
+  "name": "Rust",
+  "image": "mcr.microsoft.com/devcontainers/rust:1-buster",
+
+  "forwardPorts": [8080]
+}

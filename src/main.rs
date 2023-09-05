@@ -6,7 +6,12 @@ mod app;
 mod config;
 mod proxy;
 
-const BLOCKED_HEADERS: &[&str] = &["transfer-encoding", "connection"];
+const BLOCKED_HEADERS: &[&str] = &[
+    "transfer-encoding",
+    "connection",
+    "content-security-policy",
+    "referrer-policy",
+];
 
 fn main() -> anyhow::Result<()> {
     let app = App::new("./config.toml".into())?;
@@ -27,3 +32,8 @@ fn main() -> anyhow::Result<()> {
     server.run()?;
     Ok(())
 }
+
+// == TODOS ==
+// - Analytis in a sqlite db and graphs on the homepage
+// - Said homepage will be a search like box with a grayed out `https://`
+//   For the user to type an address into, if its not a valid address, ddg search it.
