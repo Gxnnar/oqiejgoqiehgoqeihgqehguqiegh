@@ -1,6 +1,5 @@
 use afire::{
     extensions::ServeStatic,
-    trace,
     trace::{set_log_level, Level},
     Middleware, Server,
 };
