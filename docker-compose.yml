@@ -1,8 +1,8 @@
 services:
   web-server:
     image: school-proxy
-    build: .
     ports:
       - "8080:8080"
     volumes:
-      - ./config.toml:/school-proxy/config.toml:ro
+      - ./config.toml:/school_proxy/config.toml:ro
+      - ./data:/school_proxy/data

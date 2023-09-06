@@ -25,4 +25,4 @@ COPY --from=build /school_proxy/target/release/school_proxy .
 COPY ./web ./web
 
 EXPOSE 8080
-CMD ["./school_proxy"]
+CMD ["./school_proxy"]  
