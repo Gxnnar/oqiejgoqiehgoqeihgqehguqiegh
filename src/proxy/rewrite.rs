@@ -12,7 +12,7 @@ use html5ever::{
 use markup5ever_rcdom::{Handle, NodeData, RcDom, SerializableHandle};
 use url::Url;
 
-use super::SUPPORTED_URL_SCHEMES;
+const SUPPORTED_URL_SCHEMES: &[&str] = &["http", "https"];
 
 pub fn rewrite(body: &str, current_url: &Url) -> anyhow::Result<Vec<u8>> {
     let dom = parse_document(RcDom::default(), Default::default())

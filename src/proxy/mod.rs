@@ -1,24 +1,15 @@
 use std::time::Duration;
-use std::{borrow::Cow, time::Instant};
+use std::time::Instant;
 
 use afire::{internal::encoding, prelude::*, route::RouteContext};
 use ureq::{AgentBuilder, Error};
 use url::{ParseError, Url};
 
 use crate::app::App;
+use crate::proxy::headers::{transform_header_c2s, transform_header_s2c};
 
+mod headers;
 mod rewrite;
-
-const BLOCKED_HEADERS: &[&str] = &[
-    "transfer-encoding",
-    "connection",
-    "content-security-policy",
-    "referrer-policy",
-    "content-encoding",
-    "accept-encoding",
-];
-
-const SUPPORTED_URL_SCHEMES: &[&str] = &["http", "https"];
 
 pub fn attach(server: &mut Server<App>) {
     server.route(Method::ANY, "/p/{path}", |ctx| {
@@ -56,7 +47,7 @@ pub fn attach(server: &mut Server<App>) {
             .req
             .headers
             .iter()
-            .filter(|x| !blocked_header(x.name.to_string().as_str()))
+            .filter_map(|x| transform_header_c2s(x))
         {
             res = res.set(&i.name.to_string(), &i.value);
         }
@@ -88,17 +79,8 @@ pub fn attach(server: &mut Server<App>) {
         let headers = res
             .headers_names()
             .iter()
-            .filter(|x| !blocked_header(x))
-            .map(|i| {
-                let mut header = Header::new(i, res.header(i).unwrap());
-                if header.name == HeaderName::Location {
-                    if let Ok(url) = url.join(&header.value) {
-                        header.value =
-                            Cow::Owned(format!("/p/{}", encoding::url::encode(url.as_str())));
-                    }
-                }
-                header
-            })
+            .map(|x| Header::new(x, res.header(x).unwrap()))
+            .filter_map(|x| transform_header_s2c(x, &url))
             .collect::<Vec<_>>();
 
         // Optionally rewrite HTML
@@ -125,6 +107,6 @@ pub fn attach(server: &mut Server<App>) {
     });
 }
 
-fn blocked_header(name: &str) -> bool {
-    BLOCKED_HEADERS.contains(&name.to_ascii_lowercase().as_str())
-}
+// TODO: header transformer
+// - Location
+// - Referrer
