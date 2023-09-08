@@ -12,6 +12,8 @@ use html5ever::{
 use markup5ever_rcdom::{Handle, NodeData, RcDom, SerializableHandle};
 use url::Url;
 
+use super::SUPPORTED_URL_SCHEMES;
+
 pub fn rewrite(body: &str, current_url: &Url) -> anyhow::Result<Vec<u8>> {
     let dom = parse_document(RcDom::default(), Default::default())
         .from_utf8()
@@ -41,7 +43,7 @@ fn walk(handle: &Handle, current_url: &Url) {
     }
 }
 
-const ADDRESS_ATTRS: &[&[u8]] = &[b"src", b"href", b"srcset"];
+const ADDRESS_ATTRS: &[&[u8]] = &[b"src", b"href", b"srcset", b"action"];
 
 fn rewrite_all(attrs: &RefCell<Vec<Attribute>>, current_url: &Url) {
     let mut attrs = attrs.borrow_mut();
@@ -54,6 +56,10 @@ fn rewrite_all(attrs: &RefCell<Vec<Attribute>>, current_url: &Url) {
     }
 
     if let Ok(url) = current_url.join(&href.value) {
+        if !SUPPORTED_URL_SCHEMES.contains(&url.scheme()) {
+            return;
+        }
+
         href.value = format!("/p/{}", encoding::url::encode(url.as_str())).into();
     }
 }

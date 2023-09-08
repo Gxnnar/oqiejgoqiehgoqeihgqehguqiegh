@@ -18,6 +18,8 @@ const BLOCKED_HEADERS: &[&str] = &[
     "accept-encoding",
 ];
 
+const SUPPORTED_URL_SCHEMES: &[&str] = &["http", "https"];
+
 pub fn attach(server: &mut Server<App>) {
     server.route(Method::ANY, "/p/{path}", |ctx| {
         let raw_url = encoding::url::decode(ctx.param_idx(0));
@@ -25,7 +27,10 @@ pub fn attach(server: &mut Server<App>) {
         if let Err(ParseError::RelativeUrlWithoutBase) = url {
             url = Url::parse(&format!("https://{}", raw_url));
         }
-        let url = url.context("Invalid URL")?;
+        let mut url = url.context("Invalid URL")?;
+        if !ctx.req.query.is_empty() {
+            url.set_query(Some(&ctx.req.query.to_string()[1..]));
+        }
 
         #[cfg(debug_assertions)]
         println!("[HANDLING] `{}`", url);
