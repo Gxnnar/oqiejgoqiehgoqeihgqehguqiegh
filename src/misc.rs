@@ -1,5 +1,7 @@
 use std::net::IpAddr;
 
+use url::Url;
+
 pub fn is_global(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(ip) => {
@@ -27,4 +29,10 @@ pub fn is_global(ip: IpAddr) -> bool {
                         || matches!(ip.segments(), [0x2001, b, _, _, _, _, _, _] if (0x20..=0x2F).contains(&b)))))
         }
     }
+}
+
+pub fn tld(url: &Url) -> Option<String> {
+    let mut host = url.host_str()?.split('.');
+    let tld = host.next_back()?.to_string();
+    Some(tld)
 }
