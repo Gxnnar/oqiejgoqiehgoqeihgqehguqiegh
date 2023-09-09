@@ -18,11 +18,11 @@ COPY ./src ./src
 RUN rm ./target/release/deps/school_proxy*
 RUN cargo build -r
 
-FROM rust:1.70.0
+FROM debian:latest
 
 WORKDIR /school_proxy
 COPY --from=build /school_proxy/target/release/school_proxy .
 COPY ./web ./web
 
 EXPOSE 8080
-CMD ["./school_proxy"]  
+CMD ["./school_proxy"]
