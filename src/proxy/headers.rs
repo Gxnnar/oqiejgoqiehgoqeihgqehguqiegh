@@ -22,14 +22,8 @@ pub fn transform_header_c2s(header: &Header) -> Option<Cow<Header>> {
         // Rewrite Referrer header to be the original URL
         // https://proxy.connorcode.com/p/https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FMain_Page
         // => https://en.wikipedia.org/wiki/Main_Page
-        HeaderName::Referer => {
-            if let Some(i) = rewrite_referer(&header.value) {
-                return Some(Cow::Owned(Header {
-                    name: HeaderName::Referer,
-                    value: Cow::Owned(i),
-                }));
-            }
-        }
+        HeaderName::Referer => return rewrite_referer(&header.value).map(Cow::Owned),
+        // HeaderName::UserAgent 
         _ => {}
     }
 
@@ -57,13 +51,16 @@ pub fn transform_header_s2c(mut header: Header, url: &Url) -> Option<Header> {
 
 // TODO: Referrer policy stuff
 // => https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referrer-Policy#directives
-fn rewrite_referer(old: &str) -> Option<String> {
+fn rewrite_referer(old: &str) -> Option<Header> {
     let url = Url::parse(old).ok()?;
     let path = url.path();
     let (_, path) = path.split_once("/p/")?;
     let path = encoding::url::decode(path);
 
-    Some(path)
+    Some(Header {
+        name: HeaderName::Referer,
+        value: Cow::Owned(path),
+    })
 }
 
 fn blocked_header(header: &Header) -> bool {
