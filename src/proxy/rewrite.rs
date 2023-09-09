@@ -19,10 +19,10 @@ pub fn rewrite(body: &str, current_url: &Url) -> anyhow::Result<Vec<u8>> {
         .from_utf8()
         .read_from(&mut body.as_bytes())?;
 
-    walk(&dom.document, &current_url);
+    walk(&dom.document, current_url);
 
     let mut bytes = Vec::new();
-    let document: SerializableHandle = dom.document.clone().into();
+    let document: SerializableHandle = dom.document.into();
     serialize::serialize(&mut bytes, &document, SerializeOpts::default()).unwrap();
 
     Ok(bytes)
@@ -51,7 +51,7 @@ fn rewrite_all(attrs: &RefCell<Vec<Attribute>>, current_url: &Url) {
             return;
         };
 
-    if href.value.starts_with("#") {
+    if href.value.starts_with('#') {
         return;
     }
 

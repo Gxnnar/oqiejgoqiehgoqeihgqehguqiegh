@@ -49,12 +49,7 @@ pub fn attach(server: &mut Server<App>) {
             .set("User-Agent", PROXY_MESSAGE);
 
         // Add headers to server request
-        for i in ctx
-            .req
-            .headers
-            .iter()
-            .filter_map(|x| transform_header_c2s(x))
-        {
+        for i in ctx.req.headers.iter().filter_map(transform_header_c2s) {
             req = req.set(&i.name.to_string(), &i.value);
         }
 

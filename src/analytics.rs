@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use afire::{extensions::RealIp, internal::sync::ForceLockMutex, Request};
+use afire::{extensions::RealIp, Request};
 use parking_lot::{MappedMutexGuard, Mutex, MutexGuard};
 use rusqlite::{params, Connection};
 use url::Url;
