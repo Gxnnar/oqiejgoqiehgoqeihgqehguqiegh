@@ -1,21 +1,23 @@
-use std::net::IpAddr;
-use std::time::Duration;
-use std::time::Instant;
+use std::{
+    net::IpAddr,
+    time::{Duration, Instant},
+};
 
 use afire::{internal::encoding, prelude::*, route::RouteContext};
 use ureq::{AgentBuilder, Error};
 use url::{ParseError, Url};
 
-use crate::app::App;
-use crate::misc::is_global;
-use crate::proxy::headers::PROXY_MESSAGE;
-use crate::proxy::headers::{transform_header_c2s, transform_header_s2c};
+use crate::{
+    app::App,
+    misc::is_global,
+    proxy::headers::{transform_header_c2s, transform_header_s2c, PROXY_MESSAGE},
+};
 
 mod headers;
 mod rewrite;
 
 pub fn attach(server: &mut Server<App>) {
-    server.route(Method::ANY, "/p/{path}", |ctx| {
+    server.route(Method::ANY, "/~/{path}", |ctx| {
         let raw_url = encoding::url::decode(ctx.param_idx(0));
         let mut url = Url::parse(&raw_url);
         if let Err(ParseError::RelativeUrlWithoutBase) = url {
@@ -108,7 +110,3 @@ pub fn attach(server: &mut Server<App>) {
         Ok(())
     });
 }
-
-// TODO: header transformer
-// - Location
-// - Referrer

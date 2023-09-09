@@ -22,7 +22,7 @@ pub fn transform_header_c2s(header: &Header) -> Option<Cow<Header>> {
 
     match header.name {
         // Rewrite Referrer header to be the original URL
-        // https://proxy.connorcode.com/p/https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FMain_Page
+        // https://proxy.connorcode.com/~/https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FMain_Page
         // => https://en.wikipedia.org/wiki/Main_Page
         HeaderName::Referer => return rewrite_referer(&header.value).map(Cow::Owned),
         // Add proxy info to user agent
@@ -45,7 +45,7 @@ pub fn transform_header_s2c(mut header: Header, url: &Url) -> Option<Header> {
         // Rewrite location header to point to proxy address
         HeaderName::Location => {
             if let Ok(url) = url.join(&header.value) {
-                header.value = Cow::Owned(format!("/p/{}", encoding::url::encode(url.as_str())));
+                header.value = Cow::Owned(format!("/~/{}", encoding::url::encode(url.as_str())));
             }
         }
         _ => {}
@@ -59,7 +59,7 @@ pub fn transform_header_s2c(mut header: Header, url: &Url) -> Option<Header> {
 fn rewrite_referer(old: &str) -> Option<Header> {
     let url = Url::parse(old).ok()?;
     let path = url.path();
-    let (_, path) = path.split_once("/p/")?;
+    let (_, path) = path.split_once("/~/")?;
     let path = encoding::url::decode(path);
 
     Some(Header {

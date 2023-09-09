@@ -60,7 +60,7 @@ fn rewrite_all(attrs: &RefCell<Vec<Attribute>>, current_url: &Url) {
             return;
         }
 
-        href.value = format!("/p/{}", encoding::url::encode(url.as_str())).into();
+        href.value = format!("/~/{}", encoding::url::encode(url.as_str())).into();
     }
 }
 

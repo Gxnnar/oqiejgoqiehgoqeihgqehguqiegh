@@ -9,9 +9,9 @@ use app::App;
 mod analytics;
 mod app;
 mod config;
+mod misc;
 mod proxy;
 mod routes;
-mod misc;
 
 fn main() -> anyhow::Result<()> {
     set_log_level(Level::Trace);

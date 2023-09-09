@@ -42,7 +42,7 @@ GO_BUTTON.addEventListener("click", (e) => {
     addr = `https://duckduckgo.com/?q=${encodeURIComponent(INPUT.value)}`;
   }
 
-  document.location = `/p/${encodeURIComponent(addr)}`;
+  document.location = `/~/${encodeURIComponent(addr)}`;
 });
 
 FORM.addEventListener("submit", (e) => {

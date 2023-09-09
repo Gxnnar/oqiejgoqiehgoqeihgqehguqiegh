@@ -1,13 +1,13 @@
 self.addEventListener("fetch", (event) => {
   console.log("====================================");
   console.log("URL: " + event.request.url);
-  if (event.request.url.includes("/p/")) return;
+  if (event.request.url.includes("/~/")) return;
   let url = new URL(event.request.url);
-  let realHost = event.request.referrer.split("/p/")[1];
+  let realHost = event.request.referrer.split("/~/")[1];
   console.log("REFERER: " + event.request.referrer);
 
   // if (realHost == undefined) {
-  //   let req = new Request(`/p/${encodeURIComponent(url)}`, event.request);
+  //   let req = new Request(`/~/${encodeURIComponent(url)}`, event.request);
   //   return fetch(req);
   // }
 
@@ -15,11 +15,11 @@ self.addEventListener("fetch", (event) => {
   console.log("REAL HOST" + realHost);
   realHost = new URL(realHost).origin;
   console.log("REAL HOST ORIGIN" + realHost);
-  let path = url.pathname + url.search; //.split("/p/")[1] ?? url.pathname;
+  let path = url.pathname + url.search; //.split("/~/")[1] ?? url.pathname;
   console.log("PATH: " + path);
 
   let req = new Request(
-    `/p/${encodeURIComponent(
+    `/~/${encodeURIComponent(
       `${realHost}${path.endsWith("/") ? "" : "/"}${path}`
     )}`,
     event.request
