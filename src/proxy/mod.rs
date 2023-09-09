@@ -7,6 +7,7 @@ use ureq::{AgentBuilder, Error};
 use url::{ParseError, Url};
 
 use crate::app::App;
+use crate::misc::is_global;
 use crate::proxy::headers::PROXY_MESSAGE;
 use crate::proxy::headers::{transform_header_c2s, transform_header_s2c};
 
@@ -30,7 +31,7 @@ pub fn attach(server: &mut Server<App>) {
 
         // Disallow localhost requests
         if let Some(host) = url.host_str() {
-            if host == "localhost" || host.parse::<IpAddr>().map(|x| !x.is_global()) == Ok(true) {
+            if host == "localhost" || host.parse::<IpAddr>().map(|x| !is_global(x)) == Ok(true) {
                 return Ok(ctx
                     .status(500)
                     .text("Localhost is off limits. Nice try.")

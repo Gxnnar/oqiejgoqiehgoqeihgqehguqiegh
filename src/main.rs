@@ -1,5 +1,3 @@
-#![feature(ip)]
-
 use afire::{
     extensions::ServeStatic,
     trace::{set_log_level, Level},
@@ -13,6 +11,7 @@ mod app;
 mod config;
 mod proxy;
 mod routes;
+mod misc;
 
 fn main() -> anyhow::Result<()> {
     set_log_level(Level::Trace);
