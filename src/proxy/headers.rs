@@ -3,6 +3,8 @@ use std::borrow::Cow;
 use afire::{internal::encoding, Header, HeaderName};
 use url::Url;
 
+pub const PROXY_MESSAGE: &str =
+    "(Proxied by SchoolProxy [https://github.com/Basicprogrammer10/school-proxy])";
 const BLOCKED_HEADERS: &[&str] = &[
     "transfer-encoding",
     "connection",
@@ -23,7 +25,10 @@ pub fn transform_header_c2s(header: &Header) -> Option<Cow<Header>> {
         // https://proxy.connorcode.com/p/https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FMain_Page
         // => https://en.wikipedia.org/wiki/Main_Page
         HeaderName::Referer => return rewrite_referer(&header.value).map(Cow::Owned),
-        // HeaderName::UserAgent 
+        // Add proxy info to user agent
+        HeaderName::UserAgent => return rewrite_user_agent(&header.value).map(Cow::Owned),
+        // Remove X-Forwarded-For header
+        HeaderName::XForwardedFor => return None,
         _ => {}
     }
 
@@ -60,6 +65,13 @@ fn rewrite_referer(old: &str) -> Option<Header> {
     Some(Header {
         name: HeaderName::Referer,
         value: Cow::Owned(path),
+    })
+}
+
+fn rewrite_user_agent(old: &str) -> Option<Header> {
+    Some(Header {
+        name: HeaderName::UserAgent,
+        value: Cow::Owned(format!("{old} {PROXY_MESSAGE}")),
     })
 }
 

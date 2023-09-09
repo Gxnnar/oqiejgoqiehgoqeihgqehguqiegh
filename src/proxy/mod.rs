@@ -1,3 +1,4 @@
+use std::net::IpAddr;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -6,6 +7,7 @@ use ureq::{AgentBuilder, Error};
 use url::{ParseError, Url};
 
 use crate::app::App;
+use crate::proxy::headers::PROXY_MESSAGE;
 use crate::proxy::headers::{transform_header_c2s, transform_header_s2c};
 
 mod headers;
@@ -27,11 +29,13 @@ pub fn attach(server: &mut Server<App>) {
         println!("[HANDLING] `{}`", url);
 
         // Disallow localhost requests
-        if let Some("localhost") | Some("127.0.0.1") = url.host_str() {
-            return Ok(ctx
-                .status(500)
-                .text("Localhost is off limits. Nice try.")
-                .send()?);
+        if let Some(host) = url.host_str() {
+            if host == "localhost" || host.parse::<IpAddr>().map(|x| !x.is_global()) == Ok(true) {
+                return Ok(ctx
+                    .status(500)
+                    .text("Localhost is off limits. Nice try.")
+                    .send()?);
+            }
         }
 
         // Make request to real server
@@ -40,7 +44,9 @@ pub fn attach(server: &mut Server<App>) {
             .redirects(0)
             .timeout(Duration::from_millis(timeout))
             .build();
-        let mut res = agent.request(&ctx.req.method.to_string(), url.as_str());
+        let mut req = agent
+            .request(&ctx.req.method.to_string(), url.as_str())
+            .set("User-Agent", PROXY_MESSAGE);
 
         // Add headers to server request
         for i in ctx
@@ -49,16 +55,16 @@ pub fn attach(server: &mut Server<App>) {
             .iter()
             .filter_map(|x| transform_header_c2s(x))
         {
-            res = res.set(&i.name.to_string(), &i.value);
+            req = req.set(&i.name.to_string(), &i.value);
         }
 
         if let Some(i) = url.host_str() {
-            res = res.set("Host", i);
+            req = req.set("Host", i);
         }
 
         // Send request
         let time = Instant::now();
-        let res = match res.send_bytes(&ctx.req.body) {
+        let res = match req.send_bytes(&ctx.req.body) {
             Ok(i) => i,
             Err(Error::Status(_, i)) => i,
             Err(e) => {

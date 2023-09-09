@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use afire::{internal::sync::ForceLockMutex, Request};
+use afire::{extensions::RealIp, internal::sync::ForceLockMutex, Request};
 use parking_lot::{MappedMutexGuard, Mutex, MutexGuard};
 use rusqlite::{params, Connection};
 use url::Url;
@@ -73,7 +73,7 @@ impl Analytics {
         this.execute(
             include_str!("./sql/insert_requests.sql"),
             params![
-                request.socket.force_lock().peer_addr()?.to_string(),
+                request.real_ip().to_string(),
                 request.method.to_string(),
                 path.as_str(),
                 path.host_str().unwrap_or_default(),

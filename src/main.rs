@@ -1,8 +1,11 @@
+#![feature(ip)]
+
 use afire::{
     extensions::ServeStatic,
     trace::{set_log_level, Level},
     Middleware, Server,
 };
+use anyhow::Context;
 use app::App;
 
 mod analytics;
@@ -13,6 +16,7 @@ mod routes;
 
 fn main() -> anyhow::Result<()> {
     set_log_level(Level::Trace);
+    println!("[*] Starting Server...");
 
     let app = App::new("./config.toml".into())?;
     let mut server = Server::new(app.config.host, app.config.port)
@@ -31,7 +35,7 @@ fn main() -> anyhow::Result<()> {
         std::process::exit(0);
     })?;
 
-    server.run()?;
+    server.run().context("Error starting server")?;
     Ok(())
 }
 
